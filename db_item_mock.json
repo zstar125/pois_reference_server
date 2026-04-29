@@ -21,5 +21,15 @@
       "value": "5",
       "operator": "="
     }
-  }
+  },
+  "virtual_input_switch_rules": [
+    {
+      "trigger_condition": {
+        "property": "segmentation_type_id",
+        "value": "1",
+        "operator": "="
+      },
+      "alt_content_identity": "backup_encoder_input"
+    }
+  ]
 }

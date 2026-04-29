@@ -349,6 +349,27 @@ def lambda_handler(event, context):
 
         return resp_signal
 
+    def spn_virtual_input_switch(alt_content_identity):
+        # Build Response Signal for virtual input switch
+        # Returns noop action with AlternateContent element
+        resp_signal = dict()
+
+        resp_signal['@action'] = "noop"
+        resp_signal['@acquisitionPointIdentity'] = acquisition_point_id
+        resp_signal['@acquisitionSignalID'] = acquisition_signal_id
+        resp_signal['@acquisitionTime'] = acquisition_time
+        resp_signal['sig:UTCPoint'] = {}
+        resp_signal['sig:UTCPoint']['@utcPoint'] = sig_utc_point
+        resp_signal['sig:BinaryData'] = {}
+        resp_signal['sig:BinaryData']['@signalType'] = sig_binary_data_type
+        resp_signal['sig:BinaryData']['#text'] = sig_binary_data
+        resp_signal['AlternateContent'] = {}
+        resp_signal['AlternateContent']['@altContent'] = "true"
+        resp_signal['AlternateContent']['@altContentIdentity'] = alt_content_identity
+        resp_signal['AlternateContent']['@zoneIdentity'] = zone_identity
+
+        return resp_signal
+
     action = ""
     custom_status_code = dict()
     channel_pois_record = dict()
@@ -373,12 +394,48 @@ def lambda_handler(event, context):
         custom_status_code['@classCode'] = 2
         custom_status_code['core:Note'] = "Unable to retrieve channel config from POIS"
 
+    # check if virtual input switch rules present and evaluate them first
+    # virtual input switch rules are evaluated before normal rules
+    virtual_input_switch_matched = False
+    if "virtual_input_switch_rules" in dynamodb_to_json and action == "":
+        LOGGER.info("Channel has virtual input switch rules, evaluating them")
+
+        # Parse SCTE35 for virtual input switch evaluation
+        try:
+            vis_scte_35_cue = threefive.Cue(sig_binary_data)
+            vis_scte_35_cue.decode()
+            vis_scte_35_dict = vis_scte_35_cue.get()
+
+            for vis_rule in dynamodb_to_json['virtual_input_switch_rules']:
+                vis_trigger_property = vis_rule['trigger_condition']['property']
+                vis_trigger_value = vis_rule['trigger_condition']['value']
+                vis_trigger_operator = vis_rule['trigger_condition'].get('operator', '=')
+                vis_target = vis_rule['alt_content_identity']
+
+                # Evaluate the trigger condition against the SCTE-35 signal
+                vis_match = scte_rule_checker(vis_trigger_property, vis_trigger_value, vis_trigger_operator, vis_scte_35_dict)
+
+                if vis_match:
+                    LOGGER.info("Virtual input switch rule matched, switching to: %s" % (vis_target))
+                    action = "virtual_input_switch"
+                    custom_status_code['@classCode'] = 0
+                    custom_status_code['core:Note'] = "Virtual input switch triggered, target: %s" % (vis_target)
+                    virtual_input_switch_matched = True
+                    virtual_input_switch_target = vis_target
+                    break
+
+        except Exception as e:
+            LOGGER.warning("Unable to decode SCTE35 for virtual input switch evaluation: %s" % (e))
+
     # check if rules present
     # iterate through rules
     # process any rule that evaluates to true
     # if nothing evaluates to true, return default behavior
 
-    if "rules" not in dynamodb_to_json:
+    if virtual_input_switch_matched:
+        LOGGER.info("Virtual input switch matched, skipping normal rule evaluation")
+
+    elif "rules" not in dynamodb_to_json:
         LOGGER.debug("Channel has no SCTE rules, sending default behavior")
         try:
             action = dynamodb_to_json['default_behavior']
@@ -794,7 +851,9 @@ def lambda_handler(event, context):
     ## Build ESAM Response
     ##
     LOGGER.info("action type : %s " % (action))
-    if action == "delete":
+    if action == "virtual_input_switch":
+        resp_signal = spn_virtual_input_switch(virtual_input_switch_target)
+    elif action == "delete":
         resp_signal = spn_delete()
     elif action == "noop":
         resp_signal = spn_noop()

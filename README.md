@@ -4,6 +4,7 @@
 |------------|---------|--------------|
 | 2022-09-30 | 1.0.27  | Initial release containing support for ad rules only. API configuration only - See API section for details
 | 2023-03-17 | 1.1.0 | * Added support for time signal outputs<br />* Added support for segmentation descriptor prioritization<br />* Added logic for state lock
+| 2026-04-28 | 1.2.0 | * Added virtual input switching feature<br />* Added Web UI for channel management<br />* Virtual input switch rules evaluated before normal SCTE-35 rules
 
 ## Overview
 This is a POIS reference server capable of interacting with a transcoder using ESAM protocol.
@@ -29,6 +30,11 @@ The functionality includes:
     * Utilizing the Elemental Live API (requires public facing Elemental Live IP or NAT proxy)
 * SCTE35 input switching *Will be supported at a later date, integrating with AWS Elemental Live*
     * Synchronous using inbound SCTE35 messages (Source switch logged in schedule stored in database)
+* Virtual Input Switching (SCTE-35 triggered)
+    * Configure trigger conditions based on any SCTE-35 property (e.g. segmentation_type_id)
+    * Returns noop action with AlternateContent element containing the target encoder input name
+    * Evaluated before normal SCTE-35 conditioning rules
+    * Supports per-channel configuration of multiple virtual input switch rules
 
 ## Architecture
 The architecture consists of several AWS services and is deployed using a CloudFormation template.
@@ -132,3 +138,94 @@ Here's a sample channel configuration:
 
 The channel has 2 rules; rule 1 is a delete rule that will evaluate to true if the incoming SCTE35 is a splice insert (splice_command_type=5). Rule 2 is evaluating the value of the break_duration property in the incoming SCTE35, and if the condition evaluates to true there are 2 replace_param properties that will override the corresponding properties of the incoming SCTE35 values
 
+
+
+## Virtual Input Switching
+
+The POIS supports virtual input switching triggered by SCTE-35 signals. When an incoming signal matches a configured trigger condition, the POIS responds with a `SignalProcessingNotification` containing `action="noop"` and an `AlternateContent` element that directs the encoder to switch to a different input source.
+
+### How It Works
+
+1. Virtual input switch rules are evaluated **before** normal SCTE-35 conditioning rules
+2. If a match is found, the response includes an `AlternateContent` element with:
+   - `altContent="true"` - indicates this is an alternate content directive
+   - `altContentIdentity` - the target encoder input name to switch to
+   - `zoneIdentity` - preserved from the incoming signal
+3. The original signal properties (`acquisitionPointIdentity`, `acquisitionSignalID`, `acquisitionTime`, `UTCPoint`, SCTE-35 binary) are preserved in the response
+4. If no virtual input switch rule matches, normal rule evaluation proceeds
+
+### Configuration
+
+Add `virtual_input_switch_rules` to your channel configuration:
+
+```json
+{
+  "default_behavior": "noop",
+  "esam_version": "2016",
+  "virtual_input_switch_rules": [
+    {
+      "trigger_condition": {
+        "property": "segmentation_type_id",
+        "value": "1",
+        "operator": "="
+      },
+      "alt_content_identity": "backup_encoder_input"
+    },
+    {
+      "trigger_condition": {
+        "property": "segmentation_type_id",
+        "value": "48,49",
+        "operator": "="
+      },
+      "alt_content_identity": "slate_input"
+    }
+  ]
+}
+```
+
+### Rule Format
+
+Each virtual input switch rule requires:
+- **trigger_condition**: An object with:
+  - `property` - Any valid SCTE-35 property (e.g. `segmentation_type_id`, `splice_command_type`)
+  - `value` - The value to match against (supports comma-separated values for OR logic)
+  - `operator` - (optional, defaults to `=`) One of: `=`, `>`, `<`, `-`, `!=`
+- **alt_content_identity**: The target encoder input name to switch to when the trigger matches
+
+### Example Response
+
+When a virtual input switch rule matches, the POIS returns:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<SignalProcessingNotification xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:sig="urn:cablelabs:md:xsd:signaling:3.0"
+    xmlns:core="urn:cablelabs:md:xsd:core:3.0"
+    xmlns="urn:cablelabs:iptvservices:esam:xsd:common:1">
+  <ResponseSignal action="noop"
+      acquisitionPointIdentity="channel1"
+      acquisitionSignalID="ffcd7def-bbd7-e7b0-ffff-5de975c726d0"
+      acquisitionTime="2021-09-11T03:39:48.337Z">
+    <sig:UTCPoint utcPoint="2021-09-11T03:39:48.337Z"/>
+    <sig:BinaryData signalType="SCTE35">/DAlAAAAAsrYAP/wFAUAAAABf+/+ACjJaP4AFJlwAAEBAQAA/XeB3g==</sig:BinaryData>
+    <AlternateContent altContent="true" altContentIdentity="backup_encoder_input" zoneIdentity="zone1"/>
+  </ResponseSignal>
+  <StatusCode classCode="0">
+    <core:Note>Virtual input switch triggered, target: backup_encoder_input</core:Note>
+  </StatusCode>
+</SignalProcessingNotification>
+```
+
+### Use Cases
+
+- **Content Identification triggers**: Configure `segmentation_type_id = 1` (Content Identification) to trigger an input switch when content identification markers are received
+- **Program boundary switching**: Use `segmentation_type_id = 48` or `49` (Provider Ad Start/End) to switch inputs at program boundaries
+- **Emergency switching**: Configure a specific UPID or segmentation type to trigger failover to a backup input
+
+### Web UI
+
+The Web UI (ui.html) provides a visual interface for managing virtual input switch rules under the "Virtual Input Switch" tab when editing a channel. You can:
+- Add/remove virtual input switch rules
+- Configure trigger conditions (property, operator, value)
+- Set the target altContentIdentity for each rule
+- View the current configuration in a summary table

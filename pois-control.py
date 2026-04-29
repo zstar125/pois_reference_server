@@ -326,6 +326,38 @@ def lambda_handler(event, context):
                             if esamrule['condition']['property'] not in valid_properties:
                                 return clientResponse(502,{"status":"malformed request body, esam condition property is %s, must be one of %s " % (esamrule['condition']['property'],valid_properties)})
 
+                # Validate virtual input switch rules
+                if "virtual_input_switch_rules" in list(payload.keys()):
+                    if not isinstance(payload['virtual_input_switch_rules'], list):
+                        return clientResponse(502,{"status":"malformed request body, virtual_input_switch_rules must be of type list"})
+
+                    for vis_rule in payload['virtual_input_switch_rules']:
+                        # Each rule must have trigger_condition and alt_content_identity
+                        if "trigger_condition" not in list(vis_rule.keys()):
+                            return clientResponse(502,{"status":"malformed request body, virtual input switch rule must have a trigger_condition key"})
+
+                        if "alt_content_identity" not in list(vis_rule.keys()):
+                            return clientResponse(502,{"status":"malformed request body, virtual input switch rule must have an alt_content_identity key"})
+
+                        if not isinstance(vis_rule['alt_content_identity'], str) or len(vis_rule['alt_content_identity']) < 1:
+                            return clientResponse(502,{"status":"malformed request body, alt_content_identity must be a non-empty string"})
+
+                        # Validate trigger_condition structure
+                        trigger = vis_rule['trigger_condition']
+                        if "property" not in list(trigger.keys()):
+                            return clientResponse(502,{"status":"malformed request body, virtual input switch trigger_condition must have a property key"})
+
+                        if "value" not in list(trigger.keys()):
+                            return clientResponse(502,{"status":"malformed request body, virtual input switch trigger_condition must have a value key"})
+
+                        if trigger['property'] not in valid_properties:
+                            return clientResponse(502,{"status":"malformed request body, virtual input switch trigger property is %s, must be one of %s " % (trigger['property'],valid_properties)})
+
+                        # operator is optional, defaults to '=' in the processor
+                        if "operator" in list(trigger.keys()):
+                            if trigger['operator'] not in ['=','>','<','-','!=']:
+                                return clientResponse(502,{"status":"malformed request body, virtual input switch trigger operator must be one of = , > , < , - , != "})
+
                 ##### VALIDATION END
                 # If we get here then we can write the item to the Db
                 LOGGER.info("Passed Validation, now proceeding to Create/update record in DynamoDB")

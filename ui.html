@@ -1,10 +1,591 @@
-<html>
-<title>POIS RF</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POIS Reference Server</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; }
+    .header { background: #16213e; padding: 20px 30px; border-bottom: 1px solid #0f3460; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 1.4rem; color: #4fc3f7; }
+    .header .api-url { font-size: 0.8rem; color: #888; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .config-section { margin-top: 20px; }
+    .config-section label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 4px; }
+    .config-section input, .config-section select { width: 100%; padding: 8px 12px; background: #1a1a2e; border: 1px solid #333; border-radius: 4px; color: #e0e0e0; font-size: 0.9rem; }
+    .config-section input:focus, .config-section select:focus { outline: none; border-color: #4fc3f7; }
+    .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: background 0.2s; }
+    .btn-primary { background: #4fc3f7; color: #1a1a2e; }
+    .btn-primary:hover { background: #81d4fa; }
+    .btn-danger { background: #ef5350; color: #fff; }
+    .btn-danger:hover { background: #f44336; }
+    .btn-secondary { background: #333; color: #e0e0e0; }
+    .btn-secondary:hover { background: #444; }
+    .btn-success { background: #66bb6a; color: #1a1a2e; }
+    .btn-success:hover { background: #81c784; }
+    .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+    .panel { background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .panel h2 { font-size: 1.1rem; color: #4fc3f7; margin-bottom: 15px; border-bottom: 1px solid #0f3460; padding-bottom: 10px; }
+    .panel h3 { font-size: 0.95rem; color: #81d4fa; margin-bottom: 10px; }
+    .channel-list { list-style: none; }
+    .channel-list li { padding: 10px 15px; border: 1px solid #0f3460; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.2s; }
+    .channel-list li:hover { background: #1a1a2e; }
+    .channel-list li.active { background: #0f3460; border-color: #4fc3f7; }
+    .channel-name { font-weight: 500; }
+    .channel-meta { font-size: 0.75rem; color: #888; }
+    .grid-2 { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+    .vis-rule-card { background: #1a1a2e; border: 1px solid #333; border-radius: 6px; padding: 15px; margin-bottom: 10px; position: relative; }
+    .vis-rule-card .rule-number { position: absolute; top: 8px; right: 10px; font-size: 0.7rem; color: #666; }
+    .vis-rule-card .remove-rule { position: absolute; top: 8px; right: 40px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .status-bar { padding: 10px 15px; border-radius: 4px; margin-bottom: 15px; font-size: 0.85rem; display: none; }
+    .status-bar.success { display: block; background: #1b5e20; color: #a5d6a7; border: 1px solid #2e7d32; }
+    .status-bar.error { display: block; background: #b71c1c; color: #ef9a9a; border: 1px solid #c62828; }
+    .status-bar.info { display: block; background: #0d47a1; color: #90caf9; border: 1px solid #1565c0; }
+    .empty-state { text-align: center; padding: 40px; color: #666; }
+    .empty-state p { margin-bottom: 15px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 500; }
+    .badge-noop { background: #1b5e20; color: #a5d6a7; }
+    .badge-delete { background: #b71c1c; color: #ef9a9a; }
+    .tab-bar { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid #0f3460; }
+    .tab-bar button { padding: 10px 20px; background: none; border: none; color: #888; cursor: pointer; font-size: 0.85rem; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-bar button:hover { color: #e0e0e0; }
+    .tab-bar button.active { color: #4fc3f7; border-bottom-color: #4fc3f7; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .toolbar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+    .toolbar input { flex: 1; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    table th { text-align: left; padding: 8px 12px; background: #1a1a2e; color: #aaa; border-bottom: 1px solid #333; }
+    table td { padding: 8px 12px; border-bottom: 1px solid #222; }
+    .vis-summary { margin-top: 10px; }
+    .vis-summary table { margin-top: 5px; }
+    #apiUrlInput { width: 300px; padding: 6px 10px; background: #1a1a2e; border: 1px solid #333; border-radius: 4px; color: #e0e0e0; font-size: 0.8rem; }
+</style>
+</head>
 <body>
-<h1>POIS Reference Server</h1>
-</br>
-<p>Placeholder for POIS UI</p>
 
+<div class="header">
+    <h1>POIS Reference Server</h1>
+    <div>
+        <label for="apiUrlInput" style="font-size:0.75rem;color:#888;margin-right:8px;">API Endpoint:</label>
+        <input type="text" id="apiUrlInput" placeholder="https://your-api-id.execute-api.region.amazonaws.com/pois" value="">
+        <button class="btn btn-primary btn-sm" onclick="loadChannels()" style="margin-left:8px;">Connect</button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="statusBar" class="status-bar"></div>
+
+    <div class="grid-2">
+        <!-- Left Panel: Channel List -->
+        <div>
+            <div class="panel">
+                <h2>Channels</h2>
+                <div class="toolbar">
+                    <button class="btn btn-primary btn-sm" onclick="showCreateChannel()">+ New Channel</button>
+                    <button class="btn btn-secondary btn-sm" onclick="loadChannels()">Refresh</button>
+                </div>
+                <ul class="channel-list" id="channelList">
+                    <li class="empty-state"><p>No channels loaded. Enter your API endpoint and click Connect.</p></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Right Panel: Channel Detail -->
+        <div>
+            <div class="panel" id="channelDetailPanel" style="display:none;">
+                <h2 id="channelDetailTitle">Channel Configuration</h2>
+
+                <div class="tab-bar">
+                    <button class="active" onclick="switchTab('general')">General</button>
+                    <button onclick="switchTab('rules')">SCTE-35 Rules</button>
+                    <button onclick="switchTab('vis')">Virtual Input Switch</button>
+                </div>
+
+                <!-- General Tab -->
+                <div class="tab-content active" id="tab-general">
+                    <div class="form-row">
+                        <div class="config-section">
+                            <label>Channel ID</label>
+                            <input type="text" id="cfgChannelId" placeholder="channel1">
+                        </div>
+                        <div class="config-section">
+                            <label>ESAM Version</label>
+                            <select id="cfgEsamVersion">
+                                <option value="2013">2013</option>
+                                <option value="2016">2016</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="config-section">
+                            <label>Default Behavior</label>
+                            <select id="cfgDefaultBehavior">
+                                <option value="noop">noop</option>
+                                <option value="delete">delete</option>
+                            </select>
+                        </div>
+                        <div class="config-section">
+                            <label>Mode</label>
+                            <select id="cfgMode">
+                                <option value="stateless">stateless</option>
+                                <option value="stateful">stateful</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="config-section">
+                        <label>Descriptor Priority (comma-separated segmentation_type_ids)</label>
+                        <input type="text" id="cfgDescriptorPriority" placeholder="32,48,52">
+                    </div>
+                </div>
+
+                <!-- Rules Tab -->
+                <div class="tab-content" id="tab-rules">
+                    <div class="toolbar">
+                        <button class="btn btn-primary btn-sm" onclick="addRule()">+ Add Rule</button>
+                    </div>
+                    <div id="rulesContainer"></div>
+                </div>
+
+                <!-- Virtual Input Switch Tab -->
+                <div class="tab-content" id="tab-vis">
+                    <p style="font-size:0.8rem;color:#888;margin-bottom:15px;">
+                        Configure virtual input switch rules. When an incoming SCTE-35 signal matches a trigger condition,
+                        the POIS will respond with a noop action and an AlternateContent element directing the encoder to switch inputs.
+                    </p>
+                    <div class="toolbar">
+                        <button class="btn btn-primary btn-sm" onclick="addVisRule()">+ Add Virtual Input Switch Rule</button>
+                    </div>
+                    <div id="visRulesContainer"></div>
+
+                    <!-- Current VIS Config Display -->
+                    <div class="vis-summary" id="visCurrentConfig" style="display:none;">
+                        <h3>Current Configuration</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Trigger Property</th>
+                                    <th>Operator</th>
+                                    <th>Trigger Value</th>
+                                    <th>Target Input (altContentIdentity)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="visConfigTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="margin-top:20px;display:flex;gap:10px;">
+                    <button class="btn btn-success" onclick="saveChannel()">Save Channel</button>
+                    <button class="btn btn-danger" onclick="deleteChannel()">Delete Channel</button>
+                </div>
+            </div>
+
+            <!-- Create Channel Panel -->
+            <div class="panel" id="createChannelPanel" style="display:none;">
+                <h2>Create New Channel</h2>
+                <div class="config-section">
+                    <label>Channel ID</label>
+                    <input type="text" id="newChannelId" placeholder="Enter channel name (e.g. channel1)">
+                </div>
+                <div style="margin-top:15px;">
+                    <button class="btn btn-success" onclick="createChannel()">Create</button>
+                    <button class="btn btn-secondary" onclick="hideCreateChannel()" style="margin-left:8px;">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Welcome Panel -->
+            <div class="panel" id="welcomePanel">
+                <div class="empty-state">
+                    <h2 style="color:#4fc3f7;margin-bottom:10px;">Welcome to POIS Reference Server</h2>
+                    <p>Enter your API endpoint URL above and click Connect to get started.</p>
+                    <p style="font-size:0.8rem;">Select a channel from the list to view and edit its configuration, or create a new channel.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+// ---- State ----
+let apiBaseUrl = '';
+let channels = [];
+let currentChannel = null;
+let editRules = [];
+let editVisRules = [];
+
+// Valid SCTE-35 properties for dropdowns
+const validProperties = [
+    'table_id','section_syntax_indicator','private','sap_type','protocol_version','pts_adjustment','splice_command_type',
+    'command_type','time_specified_flag','pts_time','break_auto_return','break_duration','splice_event_id',
+    'splice_event_cancel_indicator','out_of_network_indicator','program_splice_flag','duration_flag',
+    'splice_immediate_flag','unique_program_id','avail_num','avail_expected',
+    'tag','name','segmentation_message','segmentation_upid_type_name','segmentation_upid_length',
+    'sub_segment_num','sub_segments_expected','descriptor_length','identifier','segmentation_event_id',
+    'segmentation_duration','segmentation_duration_raw','segmentation_event_cancel_indicator',
+    'program_segmentation_flag','segmentation_duration_flag','delivery_not_restricted_flag',
+    'web_delivery_allowed_flag','no_regional_blackout_flag','archive_allowed_flag','device_restrictions',
+    'segmentation_upid_type','segmentation_upid','segmentation_type_id','segment_num','segments_expected',
+    'provider_avail_id'
+];
+
+// ---- Utility ----
+function showStatus(msg, type) {
+    const bar = document.getElementById('statusBar');
+    bar.textContent = msg;
+    bar.className = 'status-bar ' + type;
+    setTimeout(() => { bar.className = 'status-bar'; }, 5000);
+}
+
+function propertyOptions(selected) {
+    return validProperties.map(p =>
+        '<option value="' + p + '"' + (p === selected ? ' selected' : '') + '>' + p + '</option>'
+    ).join('');
+}
+
+function operatorOptions(selected) {
+    const ops = ['=', '>', '<', '-', '!='];
+    return ops.map(o =>
+        '<option value="' + o + '"' + (o === selected ? ' selected' : '') + '>' + o + '</option>'
+    ).join('');
+}
+
+// ---- API Calls ----
+async function apiCall(method, path, body) {
+    const url = apiBaseUrl + path;
+    const opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const resp = await fetch(url, opts);
+    const data = await resp.json();
+    return { status: resp.status, data: typeof data === 'string' ? JSON.parse(data) : data };
+}
+
+// ---- Channel List ----
+async function loadChannels() {
+    apiBaseUrl = document.getElementById('apiUrlInput').value.replace(/\/+$/, '');
+    if (!apiBaseUrl) { showStatus('Please enter an API endpoint URL', 'error'); return; }
+
+    try {
+        const resp = await apiCall('GET', '/channels');
+        if (resp.status === 200) {
+            channels = Array.isArray(resp.data) ? resp.data : [];
+            renderChannelList();
+            showStatus('Loaded ' + channels.length + ' channel(s)', 'success');
+        } else {
+            showStatus('Error loading channels: ' + JSON.stringify(resp.data), 'error');
+        }
+    } catch (e) {
+        showStatus('Connection failed: ' + e.message, 'error');
+    }
+}
+
+function renderChannelList() {
+    const list = document.getElementById('channelList');
+    if (channels.length === 0) {
+        list.innerHTML = '<li class="empty-state"><p>No channels configured.</p></li>';
+        return;
+    }
+    list.innerHTML = channels.map(ch => {
+        const id = ch.channelid || 'unknown';
+        const behavior = ch.default_behavior || 'noop';
+        const ruleCount = ch.rules ? (Array.isArray(ch.rules) ? ch.rules.length : Object.keys(ch.rules).length) : 0;
+        const visCount = ch.virtual_input_switch_rules ? ch.virtual_input_switch_rules.length : 0;
+        const isActive = currentChannel && currentChannel.channelid === id;
+        return '<li class="' + (isActive ? 'active' : '') + '" onclick="selectChannel(\'' + id + '\')">' +
+            '<div><span class="channel-name">' + id + '</span><br>' +
+            '<span class="channel-meta">' + ruleCount + ' rule(s), ' + visCount + ' VIS rule(s)</span></div>' +
+            '<span class="badge badge-' + behavior + '">' + behavior + '</span></li>';
+    }).join('');
+}
+
+// ---- Channel Selection ----
+async function selectChannel(channelId) {
+    try {
+        const resp = await apiCall('GET', '/channels/' + channelId);
+        if (resp.status === 200 && resp.data.channelid) {
+            currentChannel = resp.data;
+            renderChannelDetail();
+        } else {
+            showStatus('Channel not found', 'error');
+        }
+    } catch (e) {
+        showStatus('Error loading channel: ' + e.message, 'error');
+    }
+}
+
+function renderChannelDetail() {
+    document.getElementById('welcomePanel').style.display = 'none';
+    document.getElementById('createChannelPanel').style.display = 'none';
+    document.getElementById('channelDetailPanel').style.display = 'block';
+    document.getElementById('channelDetailTitle').textContent = 'Channel: ' + currentChannel.channelid;
+
+    // General tab
+    document.getElementById('cfgChannelId').value = currentChannel.channelid || '';
+    document.getElementById('cfgChannelId').readOnly = true;
+    document.getElementById('cfgEsamVersion').value = currentChannel.esam_version || '2013';
+    document.getElementById('cfgDefaultBehavior').value = currentChannel.default_behavior || 'noop';
+    document.getElementById('cfgMode').value = currentChannel.mode || 'stateless';
+    document.getElementById('cfgDescriptorPriority').value = currentChannel.descriptor_priority || '';
+
+    // Rules tab
+    editRules = [];
+    if (currentChannel.rules) {
+        if (Array.isArray(currentChannel.rules)) {
+            editRules = JSON.parse(JSON.stringify(currentChannel.rules));
+        } else {
+            // Convert object format to array
+            Object.keys(currentChannel.rules).sort().forEach(k => {
+                editRules.push(JSON.parse(JSON.stringify(currentChannel.rules[k])));
+            });
+        }
+    }
+    renderRules();
+
+    // VIS tab
+    editVisRules = [];
+    if (currentChannel.virtual_input_switch_rules) {
+        editVisRules = JSON.parse(JSON.stringify(currentChannel.virtual_input_switch_rules));
+    }
+    renderVisRules();
+    renderVisCurrentConfig();
+
+    // Reset to general tab
+    switchTab('general');
+    renderChannelList();
+}
+
+// ---- Tabs ----
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + tabName).classList.add('active');
+    document.querySelectorAll('.tab-bar button').forEach(b => {
+        if (b.textContent.toLowerCase().includes(tabName === 'vis' ? 'virtual' : tabName)) b.classList.add('active');
+    });
+}
+
+// ---- SCTE-35 Rules ----
+function addRule() {
+    editRules.push({ type: 'delete', condition: { property: 'segmentation_type_id', value: '', operator: '=' } });
+    renderRules();
+}
+
+function removeRule(idx) {
+    editRules.splice(idx, 1);
+    renderRules();
+}
+
+function renderRules() {
+    const container = document.getElementById('rulesContainer');
+    if (editRules.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No SCTE-35 rules configured.</p></div>';
+        return;
+    }
+    container.innerHTML = editRules.map((rule, idx) => {
+        const cond = rule.condition || {};
+        let html = '<div class="vis-rule-card">';
+        html += '<span class="rule-number">Rule #' + (idx + 1) + '</span>';
+        html += '<button class="btn btn-danger btn-sm remove-rule" onclick="removeRule(' + idx + ')">Remove</button>';
+        html += '<div class="form-row-3">';
+        html += '<div class="config-section"><label>Type</label><select onchange="editRules[' + idx + '].type=this.value;renderRules()">';
+        html += '<option value="delete"' + (rule.type === 'delete' ? ' selected' : '') + '>delete</option>';
+        html += '<option value="replace"' + (rule.type === 'replace' ? ' selected' : '') + '>replace</option>';
+        html += '</select></div>';
+        html += '<div class="config-section"><label>Property</label><select onchange="editRules[' + idx + '].condition.property=this.value">' + propertyOptions(cond.property) + '</select></div>';
+        html += '<div class="config-section"><label>Operator</label><select onchange="editRules[' + idx + '].condition.operator=this.value">' + operatorOptions(cond.operator) + '</select></div>';
+        html += '</div>';
+        html += '<div class="config-section"><label>Value</label><input type="text" value="' + (cond.value || '') + '" onchange="editRules[' + idx + '].condition.value=this.value"></div>';
+
+        if (rule.type === 'replace') {
+            const params = rule.replace_params || [];
+            html += '<div style="margin-top:10px;"><label style="font-size:0.8rem;color:#aaa;">Replace Parameters</label>';
+            html += '<button class="btn btn-secondary btn-sm" style="margin-left:10px;" onclick="addReplaceParam(' + idx + ')">+ Param</button>';
+            params.forEach((p, pi) => {
+                const pKey = Object.keys(p)[0] || '';
+                const pVal = p[pKey] || '';
+                html += '<div class="form-row" style="margin-top:5px;">';
+                html += '<div class="config-section"><select onchange="updateReplaceParam(' + idx + ',' + pi + ',this.value,null)">' + propertyOptions(pKey) + '</select></div>';
+                html += '<div class="config-section"><input type="text" value="' + pVal + '" onchange="updateReplaceParam(' + idx + ',' + pi + ',null,this.value)"></div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+        return html;
+    }).join('');
+}
+
+function addReplaceParam(ruleIdx) {
+    if (!editRules[ruleIdx].replace_params) editRules[ruleIdx].replace_params = [];
+    editRules[ruleIdx].replace_params.push({ segmentation_type_id: '' });
+    renderRules();
+}
+
+function updateReplaceParam(ruleIdx, paramIdx, newKey, newVal) {
+    const params = editRules[ruleIdx].replace_params;
+    const oldKey = Object.keys(params[paramIdx])[0];
+    const oldVal = params[paramIdx][oldKey];
+    if (newKey !== null) {
+        params[paramIdx] = {};
+        params[paramIdx][newKey] = oldVal;
+    }
+    if (newVal !== null) {
+        const key = Object.keys(params[paramIdx])[0];
+        params[paramIdx][key] = newVal;
+    }
+}
+
+// ---- Virtual Input Switch Rules ----
+function addVisRule() {
+    editVisRules.push({
+        trigger_condition: { property: 'segmentation_type_id', value: '', operator: '=' },
+        alt_content_identity: ''
+    });
+    renderVisRules();
+}
+
+function removeVisRule(idx) {
+    editVisRules.splice(idx, 1);
+    renderVisRules();
+}
+
+function renderVisRules() {
+    const container = document.getElementById('visRulesContainer');
+    if (editVisRules.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No virtual input switch rules configured. Click "+ Add Virtual Input Switch Rule" to create one.</p></div>';
+        document.getElementById('visCurrentConfig').style.display = 'none';
+        return;
+    }
+    container.innerHTML = editVisRules.map((rule, idx) => {
+        const trigger = rule.trigger_condition || {};
+        let html = '<div class="vis-rule-card">';
+        html += '<span class="rule-number">VIS Rule #' + (idx + 1) + '</span>';
+        html += '<button class="btn btn-danger btn-sm remove-rule" onclick="removeVisRule(' + idx + ')">Remove</button>';
+        html += '<div class="form-row-3">';
+        html += '<div class="config-section"><label>Trigger Property</label><select onchange="editVisRules[' + idx + '].trigger_condition.property=this.value">' + propertyOptions(trigger.property) + '</select></div>';
+        html += '<div class="config-section"><label>Operator</label><select onchange="editVisRules[' + idx + '].trigger_condition.operator=this.value">' + operatorOptions(trigger.operator || '=') + '</select></div>';
+        html += '<div class="config-section"><label>Trigger Value</label><input type="text" value="' + (trigger.value || '') + '" onchange="editVisRules[' + idx + '].trigger_condition.value=this.value"></div>';
+        html += '</div>';
+        html += '<div class="config-section"><label>Target Input Name (altContentIdentity)</label>';
+        html += '<input type="text" value="' + (rule.alt_content_identity || '') + '" placeholder="e.g. backup_input, slate_input" onchange="editVisRules[' + idx + '].alt_content_identity=this.value">';
+        html += '</div>';
+        html += '</div>';
+        return html;
+    }).join('');
+}
+
+function renderVisCurrentConfig() {
+    const configDiv = document.getElementById('visCurrentConfig');
+    const tbody = document.getElementById('visConfigTableBody');
+    if (!currentChannel || !currentChannel.virtual_input_switch_rules || currentChannel.virtual_input_switch_rules.length === 0) {
+        configDiv.style.display = 'none';
+        return;
+    }
+    configDiv.style.display = 'block';
+    tbody.innerHTML = currentChannel.virtual_input_switch_rules.map((rule, idx) => {
+        const t = rule.trigger_condition || {};
+        return '<tr><td>' + (idx + 1) + '</td><td>' + (t.property || '') + '</td><td>' + (t.operator || '=') + '</td><td>' + (t.value || '') + '</td><td>' + (rule.alt_content_identity || '') + '</td></tr>';
+    }).join('');
+}
+
+// ---- Save / Create / Delete ----
+async function saveChannel() {
+    const channelId = document.getElementById('cfgChannelId').value;
+    if (!channelId) { showStatus('Channel ID is required', 'error'); return; }
+
+    const payload = {
+        default_behavior: document.getElementById('cfgDefaultBehavior').value,
+        esam_version: document.getElementById('cfgEsamVersion').value
+    };
+
+    const mode = document.getElementById('cfgMode').value;
+    if (mode !== 'stateless') payload.mode = mode;
+
+    const dp = document.getElementById('cfgDescriptorPriority').value.trim();
+    if (dp) payload.descriptor_priority = dp;
+
+    if (editRules.length > 0) payload.rules = editRules;
+    if (editVisRules.length > 0) payload.virtual_input_switch_rules = editVisRules;
+
+    try {
+        const resp = await apiCall('PUT', '/channels/' + channelId, payload);
+        if (resp.status === 200) {
+            showStatus('Channel saved successfully', 'success');
+            await loadChannels();
+            await selectChannel(channelId);
+        } else {
+            showStatus('Error saving channel: ' + JSON.stringify(resp.data), 'error');
+        }
+    } catch (e) {
+        showStatus('Error saving channel: ' + e.message, 'error');
+    }
+}
+
+async function deleteChannel() {
+    if (!currentChannel) return;
+    if (!confirm('Are you sure you want to delete channel "' + currentChannel.channelid + '"?')) return;
+
+    try {
+        const resp = await apiCall('DELETE', '/channels/' + currentChannel.channelid);
+        if (resp.status === 200) {
+            showStatus('Channel deleted', 'success');
+            currentChannel = null;
+            document.getElementById('channelDetailPanel').style.display = 'none';
+            document.getElementById('welcomePanel').style.display = 'block';
+            await loadChannels();
+        } else {
+            showStatus('Error deleting channel: ' + JSON.stringify(resp.data), 'error');
+        }
+    } catch (e) {
+        showStatus('Error deleting channel: ' + e.message, 'error');
+    }
+}
+
+function showCreateChannel() {
+    document.getElementById('welcomePanel').style.display = 'none';
+    document.getElementById('channelDetailPanel').style.display = 'none';
+    document.getElementById('createChannelPanel').style.display = 'block';
+    document.getElementById('newChannelId').value = '';
+}
+
+function hideCreateChannel() {
+    document.getElementById('createChannelPanel').style.display = 'none';
+    if (currentChannel) {
+        document.getElementById('channelDetailPanel').style.display = 'block';
+    } else {
+        document.getElementById('welcomePanel').style.display = 'block';
+    }
+}
+
+async function createChannel() {
+    const channelId = document.getElementById('newChannelId').value.trim();
+    if (!channelId || channelId.length < 2) {
+        showStatus('Channel ID must be at least 2 characters', 'error');
+        return;
+    }
+
+    const payload = { default_behavior: 'noop', esam_version: '2016' };
+
+    try {
+        const resp = await apiCall('PUT', '/channels/' + channelId, payload);
+        if (resp.status === 200) {
+            showStatus('Channel created successfully', 'success');
+            document.getElementById('createChannelPanel').style.display = 'none';
+            await loadChannels();
+            await selectChannel(channelId);
+        } else {
+            showStatus('Error creating channel: ' + JSON.stringify(resp.data), 'error');
+        }
+    } catch (e) {
+        showStatus('Error creating channel: ' + e.message, 'error');
+    }
+}
+</script>
 </body>
-
 </html>
