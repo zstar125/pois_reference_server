@@ -138,6 +138,9 @@ def lambda_handler(event, context):
             'statusCode': status_code,
             "headers": {
                 "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET,PUT,DELETE,OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
             },
             'body': json.dumps(response_message)
         }

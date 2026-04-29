@@ -57,6 +57,44 @@ Use [this CloudFormation template](pois-ref-server.yaml) to deploy the solution.
 * Amazon S3 ****bucket deployed to host UI ... later phase*
 * AWS IAM Role & Policy creation for Lambda Functions
 
+## Web UI
+
+The POIS includes a web-based dashboard (`ui.html`) for managing channels, SCTE-35 rules, and virtual input switch configuration.
+
+### Loading the UI after CloudFormation deployment
+
+After deploying the CloudFormation stack, the UI is automatically uploaded to the S3 bucket created by the stack. You can find the URL in the CloudFormation **Outputs** tab under the **POISControlUI** key. It will look like:
+
+```
+https://<bucket-name>.s3.<region>.amazonaws.com/<path>/ui.html
+```
+
+Open that URL in your browser to access the dashboard.
+
+### Loading the UI locally
+
+You can also open `ui.html` directly from your local filesystem — no web server required. Simply open the file in any modern browser:
+
+- **macOS**: `open ui.html` or double-click the file in Finder
+- **Windows**: double-click `ui.html` in File Explorer
+- **Linux**: `xdg-open ui.html` or open it from your file manager
+
+### Connecting to your POIS API
+
+Once the UI is loaded:
+
+1. Enter your **ChannelConfigurationAPI** endpoint in the "API Endpoint" field at the top of the page. This is the value from the CloudFormation Outputs tab and looks like:
+   ```
+   https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/pois
+   ```
+2. Click **Connect** to load all configured channels
+3. Select a channel from the list to view or edit its configuration
+4. Use the tabs to manage **General** settings, **SCTE-35 Rules**, and **Virtual Input Switch** rules
+5. Click **Save Channel** to persist changes, or **+ New Channel** to create a new one
+
+| Note: If you are running the UI locally and connecting to an API Gateway endpoint, make sure CORS is enabled on your API Gateway or you may see connection errors in the browser console. |
+|----------|
+
 ## API Control
 At initial release, the only option to configure the POIS is via API. Once you've deployed the CloudFormation stack, check the **Outputs** tab. This will contain your API Endpoints.
 

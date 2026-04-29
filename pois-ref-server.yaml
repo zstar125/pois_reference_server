@@ -24,9 +24,30 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadUI
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${S3Bucket}/*.html
 
   #################
   ## IAM & Permissions
@@ -307,7 +328,7 @@ Resources:
               http = urllib3.PoolManager()
 
               # Manifest File containning URL's on github
-              cloudformation_manifest = "https://raw.githubusercontent.com/scunning1987/pois_reference_server/main/manifest.txt"
+              cloudformation_manifest = "https://raw.githubusercontent.com/zstar125/pois_reference_server/main/manifest.txt"
 
               # Pull global env variable to variable
               bucket = os.environ['BUCKET']
@@ -556,7 +577,7 @@ Resources:
           - StatusCode: 200
             ResponseParameters:
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,PUT,OPTIONS'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: ''

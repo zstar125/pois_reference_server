@@ -1,6 +1,6 @@
 ## CloudFormation manifest of all the file locations
-https://raw.githubusercontent.com/scunning1987/pois_reference_server/main/esam-processor.py
-https://raw.githubusercontent.com/scunning1987/pois_reference_server/main/pois-control.py
-https://raw.githubusercontent.com/scunning1987/pois_reference_server/main/xmltodict.zip
-https://raw.githubusercontent.com/scunning1987/pois_reference_server/main/ui.html
-https://raw.githubusercontent.com/scunning1987/pois_reference_server/main/threefive.zip
+https://raw.githubusercontent.com/zstar125/pois_reference_server/main/esam-processor.py
+https://raw.githubusercontent.com/zstar125/pois_reference_server/main/pois-control.py
+https://raw.githubusercontent.com/zstar125/pois_reference_server/main/xmltodict.zip
+https://raw.githubusercontent.com/zstar125/pois_reference_server/main/ui.html
+https://raw.githubusercontent.com/zstar125/pois_reference_server/main/threefive.zip
